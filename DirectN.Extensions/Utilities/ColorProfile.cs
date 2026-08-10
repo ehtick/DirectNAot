@@ -15,8 +15,9 @@ public sealed class ColorProfile
 
         Size = header.phSize;
         CmmType = header.phCMMType;
-        VersionMajor = header.phVersion & 0xFF;
-        VersionMinor = (header.phVersion >> 24) & 0xFF;
+        VersionMajor = (header.phVersion >> 24) & 0xFF;
+        VersionMinor = (header.phVersion >> 20) & 0x0F;
+        VersionBugfix = (header.phVersion >> 16) & 0x0F;
         Class = header.phClass;
         DataColorSpace = header.phDataColorSpace;
         ConnectionSpace = header.phConnectionSpace;
@@ -88,53 +89,36 @@ public sealed class ColorProfile
                                 break;
 
                             case "desc":
-                                // search old ICC doc for "textDescriptionType" https://www.color.org/icc32.pdf 
+                                // textDescriptionType, search the old ICC doc for "textDescriptionType" at https://www.color.org/icc32.pdf.
                                 offset = 8;
                                 var n = getInt32();
-                                if (n > 0)
-                                {
-                                    switch (tag)
-                                    {
-                                        case 0x64657363: // desc
-                                            Description = getAscii(n);
-                                            break;
 
-                                        case 0x646d6e64: // dmnd
-                                            ManufacturerDescription = getAscii(n);
-                                            break;
-
-                                        case 0x646d6464: // dmdd
-                                            ModelDescription = getAscii(n);
-                                            break;
-
-                                        case 0x76756564: // vued
-                                            ViewingCondition = getAscii(n);
-                                            break;
-                                    }
-                                }
+                                // always consume the ascii invariant description so the unicode fields that follow stay aligned, even for a tag that is not one of the ones we surface.
+                                var descAscii = n > 0 ? getAscii(n) : null;
 
                                 UnicodeLanguageCode = getInt32();
                                 var m = getInt32();
-                                if (m > 0)
+                                var descUnicode = m > 0 ? getUnicode(m) : null;
+
+                                // the unicode part is the localizable description, fall back to the ascii invariant.
+                                var descText = descUnicode ?? descAscii;
+                                switch (tag)
                                 {
-                                    switch (tag)
-                                    {
-                                        case 0x64657363: // desc
-                                            Description = getUnicode(n);
-                                            break;
+                                    case 0x64657363: // desc
+                                        Description = descText;
+                                        break;
 
-                                        case 0x646d6e64: // dmnd
-                                            ManufacturerDescription = getUnicode(n);
-                                            break;
+                                    case 0x646d6e64: // dmnd
+                                        ManufacturerDescription = descText;
+                                        break;
 
-                                        case 0x646d6464: // dmdd
-                                            ModelDescription = getUnicode(n);
-                                            break;
+                                    case 0x646d6464: // dmdd
+                                        ModelDescription = descText;
+                                        break;
 
-                                        case 0x76756564: // vued
-                                            ViewingCondition = getUnicode(n);
-                                            break;
-                                    }
+                                    case 0x76756564: // vued
+                                        ViewingCondition = descText;
+                                        break;
                                 }
                                 break;
 
@@ -145,6 +129,9 @@ public sealed class ColorProfile
                                 if (recordSize != 12 || records == 0)
                                     break;
 
+                                // among the localized records, prefer en-US, then any English, then the first one, instead of letting the last record in the file win.
+                                string? best = null;
+                                var bestRank = int.MaxValue;
                                 for (var ir = 0; ir < records; ir++)
                                 {
                                     var languageCode = Get2BytesString(BitConverter.ToInt16(bytes, offset));
@@ -167,30 +154,42 @@ public sealed class ColorProfile
 
                                     list.Add(s);
 
+                                    var rank = string.Equals(lcid, "en-US", StringComparison.OrdinalIgnoreCase) ? 0
+                                        : languageCode != null && languageCode.StartsWith("en", StringComparison.OrdinalIgnoreCase) ? 1
+                                        : 2;
+                                    if (best == null || rank < bestRank)
+                                    {
+                                        best = s;
+                                        bestRank = rank;
+                                    }
+                                }
+
+                                if (best != null)
+                                {
                                     switch (tag)
                                     {
                                         case 0x63707274: // cprt
-                                            Copyright = s;
+                                            Copyright = best;
                                             break;
 
                                         case 0x74617267: // targ
-                                            RegisteredCharacterization = s;
+                                            RegisteredCharacterization = best;
                                             break;
 
                                         case 0x64657363: // desc
-                                            Description = s;
+                                            Description = best;
                                             break;
 
                                         case 0x646d6e64: // dmnd
-                                            ManufacturerDescription = s;
+                                            ManufacturerDescription = best;
                                             break;
 
                                         case 0x646d6464: // dmdd
-                                            ModelDescription = s;
+                                            ModelDescription = best;
                                             break;
 
                                         case 0x76756564: // vued
-                                            ViewingCondition = s;
+                                            ViewingCondition = best;
                                             break;
                                     }
                                 }
@@ -216,16 +215,21 @@ public sealed class ColorProfile
 
                         string? getUnicode(int len)
                         {
-                            var bom = BitConverter.ToInt16(bytes, offset);
-                            if (bom == -2)
+                            var byteLen = len * 2;
+                            if (byteLen <= 0 || offset + byteLen > bytes.Length)
+                                return null;
+
+                            var start = offset;
+                            offset += byteLen;
+
+                            // some encoders prepend a UTF-16BE byte order mark (FE FF), skip it so it does not leak into the string as a leading U+FEFF.
+                            if (byteLen >= 2 && bytes[start] == 0xFE && bytes[start + 1] == 0xFF)
                             {
-                                offset += 3;
-                                //len -= 1;
+                                start += 2;
+                                byteLen -= 2;
                             }
 
-                            var s = TrimTerminatingZeros(Encoding.Unicode.GetString(bytes, offset, len * 2));
-                            offset += len;
-                            return s;
+                            return TrimTerminatingZeros(Encoding.BigEndianUnicode.GetString(bytes, start, byteLen));
                         }
                     }
                 }
@@ -247,6 +251,8 @@ public sealed class ColorProfile
     public uint Size { get; }
     public uint VersionMajor { get; }
     public uint VersionMinor { get; }
+    public uint VersionBugfix { get; }
+    public string VersionString => $"{VersionMajor}.{VersionMinor}.{VersionBugfix}";
     public uint CmmType { get; }
     public uint Class { get; }
     public uint DataColorSpace { get; }
@@ -281,18 +287,21 @@ public sealed class ColorProfile
     public IReadOnlyList<ColorProfileElement> Elements { get; }
     public IReadOnlyDictionary<string, IReadOnlyList<string>> LocalizedStrings { get; }
 
-    private string GetDisplayName()
+    public string DisplayName
     {
-        if (!string.IsNullOrWhiteSpace(Description))
-            return Description;
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(Description))
+                return Description;
 
-        if (FilePath != null)
-            return Path.GetFileNameWithoutExtension(FilePath);
+            if (FilePath != null)
+                return Path.GetFileNameWithoutExtension(FilePath);
 
-        return string.Empty;
+            return string.Empty;
+        }
     }
 
-    public override string ToString() => GetDisplayName();
+    public override string ToString() => DisplayName;
 
     private static string? TrimTerminatingZeros(string str)
     {
@@ -393,6 +402,10 @@ public sealed class ColorProfile
         {
             return new ColorProfile(handle);
         }
+        catch when (!throwOnError)
+        {
+            return null;
+        }
         finally
         {
             Functions.CloseColorProfile(handle);
@@ -443,6 +456,10 @@ public sealed class ColorProfile
             try
             {
                 return new ColorProfile(handle, path);
+            }
+            catch when (!throwOnError)
+            {
+                return null;
             }
             finally
             {
