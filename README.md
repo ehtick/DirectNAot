@@ -98,6 +98,11 @@ A window is a real HWND, the UI is a web page, and the two talk over a typed bri
 
 <img width="1180" height="820" alt="AOTrino Fluent Gallery" src="https://github.com/user-attachments/assets/8e260baf-5f13-41f7-90dc-56dc7cd8283d" />
 
+# Filociraptor
+[Filociraptor](https://github.com/smourier/Filociraptor) is a fast Windows file manager  written in C#, rendered with Direct2D and compiled with NativeAOT. GPU drawn, fully virtualized and allocation free on the hot path, so folders with thousands of files open and scroll instantly.
+
+<img width="800" alt="Fileociraptor" src="https://github.com/user-attachments/assets/f22c7a41-7491-42c9-ad5f-d13386bfadb1" />
+
 # ShellBat
 [ShellBat](https://github.com/smourier/ShellBat) is a modern Windows file explorer with file viewers, multi-instance workflows, terminal integration, search capabilities, and deep Windows Shell interoperability.
 
