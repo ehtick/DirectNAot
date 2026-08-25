@@ -25,6 +25,11 @@
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
 		<NoWarn>1701;1702;CA1401</NoWarn>
+
+		<!-- skip ALL build-time analyzers in Debug: over 9000+ generated interop files they add ~15s per compile for no
+		     value on generated code. the IDE still shows squiggles via RunAnalyzersDuringLiveAnalysis above. source
+		     generators are unaffected. -->
+		<RunAnalyzers>false</RunAnalyzers>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
