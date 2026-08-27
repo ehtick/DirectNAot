@@ -589,6 +589,7 @@
     "MonitorFromRect",
     "mouse_event",
     "MoveWindow",
+    "MoveFileExW",
     "NotifyWinEvent",
     "MsgWaitForMultipleObjects",
     "MsgWaitForMultipleObjectsEx",

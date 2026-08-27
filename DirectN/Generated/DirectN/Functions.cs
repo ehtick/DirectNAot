@@ -10003,6 +10003,13 @@ public static partial class Functions
     [PreserveSig]
     public static partial void mouse_event(MOUSE_EVENT_FLAGS dwFlags, int dx, int dy, int dwData, nuint dwExtraInfo);
     
+    // https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-movefileexw
+    [LibraryImport("KERNEL32", StringMarshalling = StringMarshalling.Utf16, SetLastError = true)]
+    [SupportedOSPlatform("windows5.1.2600")]
+    [PreserveSig]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvStdcall)])]
+    public static partial BOOL MoveFileExW(PWSTR lpExistingFileName, PWSTR lpNewFileName, MOVE_FILE_FLAGS dwFlags);
+    
     // https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-movewindow
     [LibraryImport("USER32", SetLastError = true)]
     [SupportedOSPlatform("windows5.0")]

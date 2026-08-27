@@ -1,0 +1,13 @@
+﻿#nullable enable
+namespace DirectN;
+
+[Flags]
+public enum MOVE_FILE_FLAGS : uint
+{
+    MOVEFILE_COPY_ALLOWED = 2,
+    MOVEFILE_CREATE_HARDLINK = 16,
+    MOVEFILE_DELAY_UNTIL_REBOOT = 4,
+    MOVEFILE_REPLACE_EXISTING = 1,
+    MOVEFILE_WRITE_THROUGH = 8,
+    MOVEFILE_FAIL_IF_NOT_TRACKABLE = 32,
+}

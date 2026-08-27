@@ -21,6 +21,7 @@ public class TaskDialog
     public virtual uint Width { get; set; }
     public virtual nint Callback { get; set; }
     public virtual nint CallbackData { get; set; }
+    public virtual bool ShowTaskDialogError { get; set; }
 
     public int ResultButton { get; private set; }
     public int ResultRadioButton { get; private set; }
@@ -65,13 +66,19 @@ public class TaskDialog
         }
         catch (EntryPointNotFoundException ex)
         {
-            MessageBox.Show(hwnd, ex.GetInterestingExceptionMessage() + Environment.NewLine + Environment.NewLine + "Make sure the application's main executable has a manifest that enables visual styles.", "Task Dialog Fatal Error", MESSAGEBOX_STYLE.MB_ICONSTOP);
-            return MESSAGEBOX_RESULT.IDABORT;
+            if (ShowTaskDialogError)
+            {
+                MessageBox.Show(hwnd, ex.GetInterestingExceptionMessage() + Environment.NewLine + Environment.NewLine + "Make sure the application's main executable has a manifest that enables visual styles.", "Task Dialog Fatal Error", MESSAGEBOX_STYLE.MB_ICONSTOP);
+            }
+            return MESSAGEBOX_RESULT.IDTRYAGAIN;
         }
         catch (Exception e)
         {
-            MessageBox.Show(hwnd, e.GetInterestingExceptionMessage(), "Task Dialog Fatal Error", MESSAGEBOX_STYLE.MB_ICONSTOP);
-            return MESSAGEBOX_RESULT.IDABORT;
+            if (ShowTaskDialogError)
+            {
+                MessageBox.Show(hwnd, e.GetInterestingExceptionMessage(), "Task Dialog Fatal Error", MESSAGEBOX_STYLE.MB_ICONSTOP);
+            }
+            return MESSAGEBOX_RESULT.IDTRYAGAIN;
         }
     }
 }

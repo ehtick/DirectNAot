@@ -297,6 +297,7 @@ public class Application : IDisposable
     public static bool IsFatalErrorShowing { get; private set; }
     public static bool CanShowFatalError { get; set; } = true;
     public static bool ExitAllOnLastWindowRemoved { get; set; } = true;
+    public static bool ShowErrorOnTaskDialogError { get; set; } = true;
     public static bool AllExiting { get; private set; }
     public static TraceLevel TraceLevel { get; set; } = TraceLevel.Verbose;
     public static bool ShowFatalErrorsOnUnhandledException { get; set; } = !Debugger.IsAttached;
@@ -470,8 +471,18 @@ public class Application : IDisposable
 
             // note if something goes wrong (dialog wasn't show), Show will possibly return cancel (TaskDialogIndirect won't fail).
             var result = td.Show(hwnd);
+            options.TaskDialogResult = result;
 
             options.ShownFunc?.Invoke(options, result);
+
+            if (ShowErrorOnTaskDialogError)
+            {
+                var tryAgain = result == MESSAGEBOX_RESULT.IDTRYAGAIN; // means task dialog (or ShownFunch) has failed to display something
+                if (tryAgain)
+                {
+                    result = MessageBox.Show(hwnd, td.Content, td.MainInstruction, MESSAGEBOX_STYLE.MB_ICONSTOP);
+                }
+            }
 
             var shown = result != MESSAGEBOX_RESULT.IDCANCEL;
             if (shown && options.ClearErrorsOnShown)
@@ -569,6 +580,7 @@ public class Application : IDisposable
         public IReadOnlyList<Exception> Errors { get; } = errors;
         public TaskDialog Dialog { get; } = dialog;
         public HWND Hwnd { get; } = hwnd;
+        public virtual MESSAGEBOX_RESULT TaskDialogResult { get; set; }
         public virtual bool ShowDialog { get; set; } = true;
         public virtual bool ClearErrorsOnShown { get; set; } = true;
         public virtual Action<ShowFatalErrorOptions, MESSAGEBOX_RESULT>? ShownFunc { get; set; }
